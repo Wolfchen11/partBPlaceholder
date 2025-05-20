@@ -1,3 +1,5 @@
+# visualize_predictions.py
+
 import os
 import torch
 import numpy as np
@@ -5,9 +7,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import MinMaxScaler
-from models.predictor import LSTMPredictor, GRUPredictor
+from models.predictor import LSTMPredictor, GRUPredictor, MLPPredictor, TCNPredictor
 from models.lstm_model import LSTMModel
 from models.gru_model import GRUModel
+from models.mlp_model import MLPModel
+from models.tcn_model import TCNModel
 
 # Parameters
 SITE = '970'
@@ -57,14 +61,34 @@ gru_model = GRUModel(input_size=1, hidden_size=64, num_layers=2).to(device)
 gru_model.load_state_dict(gru_checkpoint['state_dict'])
 gru_model.eval()
 
+# MLP
+mlp_model_path = f'mlp_saved_models/{SITE}__{LOCATION.replace(" ", "_")}_MLP.pth'
+mlp_checkpoint = torch.load(mlp_model_path, map_location=device, weights_only = False)
+mlp_model = MLPModel(input_size=SEQ_LEN, hidden_size=128).to(device)
+mlp_model.load_state_dict(mlp_checkpoint['state_dict'])
+mlp_model.eval()
+
+# TCN
+tcn_model_path = f'tcn_saved_models/{SITE}__{LOCATION.replace(" ", "_")}_TCN.pth'
+tcn_checkpoint = torch.load(tcn_model_path, map_location=device, weights_only = False)
+tcn_model = TCNModel(input_size=1, hidden_size=64, seq_len=SEQ_LEN, output_size=1).to(device)
+tcn_model.load_state_dict(tcn_checkpoint['state_dict'])
+tcn_model.eval()
+
 # Predict
 with torch.no_grad():
     lstm_preds = lstm_model(X_tensor.to(device)).cpu().numpy()
     gru_preds = gru_model(X_tensor.to(device)).cpu().numpy()
+    # Note: MLP model requires reshaping to (N, SEQ_LEN)
+    mlp_preds = mlp_model(X_tensor.view(X_tensor.size(0), -1).to(device)).cpu().numpy()
+    tcn_preds = tcn_model(X_tensor.to(device)).cpu().numpy()
+    
 
 # Unscale predictions
 lstm_preds_inv = scaler.inverse_transform(lstm_preds)
 gru_preds_inv = scaler.inverse_transform(gru_preds)
+mlp_preds_inv = scaler.inverse_transform(mlp_preds)
+tcn_preds_inv = scaler.inverse_transform(tcn_preds)
 y_actual_inv = scaler.inverse_transform(y_scaled)
 
 # Plot
@@ -72,6 +96,8 @@ plt.figure(figsize=(15,6))
 plt.plot(timestamps, y_actual_inv, label='Actual', color='black')
 plt.plot(timestamps, lstm_preds_inv, label='LSTM Prediction', linestyle='--')
 plt.plot(timestamps, gru_preds_inv, label='GRU Prediction', linestyle=':')
+plt.plot(timestamps, mlp_preds_inv, label='MLP Prediction', linestyle='-.')
+plt.plot(timestamps, tcn_preds_inv, label='TCN Prediction', linestyle='-')
 plt.xlabel("Time")
 plt.ylabel("Traffic Volume")
 plt.title(f"Traffic Volume Prediction for {SITE} | {LOCATION}")
