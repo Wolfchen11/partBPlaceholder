@@ -18,6 +18,7 @@ def main():
     p.add_argument('--timestamp', required=True,
                    help='Timestamp for prediction (YYYY-MM-DD HH:MM:SS)')
     p.add_argument('--model', required=True, help = 'Model to use (LSTM or GRU)')
+    p.add_argument('--routes', help = 'How many routes to return')
     p.add_argument('--nodes',     default='data/scats_complete_average.csv',
                    help='Path to node centroids CSV')
     p.add_argument('--volumes',   default='data/traffic_model_ready.pkl',

@@ -14,7 +14,7 @@ mapper = EdgeMapper(
     nodes_csv="data/scats_complete.csv"
 )
 
-def astar(start, goal, centroids, edges, predictor, start_timestamp, k=1):
+def astar(start, goal, centroids, edges, predictor, start_timestamp, k=3):
     """
     Find up to k best routes (by estimated travel time, in minutes)
     from `start` to `goal`, given:
