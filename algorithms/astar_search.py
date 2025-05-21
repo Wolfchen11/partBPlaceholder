@@ -84,4 +84,15 @@ def astar(start, goal, centroids, edges, predictor, start_timestamp, k=1):
                 (priority, new_g, B, new_dep, path + [B])
             )
 
+    for i in range(len(found)):
+        path, total_time = found[i]
+        # Convert to km
+        total_dist = 0.0
+        for u, v in zip(path, path[1:]):
+            for A, B, dist in edges:
+                if u == A and v == B:
+                    total_dist += dist
+                    break
+        found[i] = (path, total_time, total_dist)    
+
     return found

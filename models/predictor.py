@@ -130,7 +130,7 @@ class LSTMPredictor:
         key = f"{site}__{loc.replace(' ','_')}.pth"
         path = os.path.join(self.models_dir_2, key)
         if not os.path.exists(path):
-            raise FileNotFoundError(f"No saved model for {site}|{loc}")
+            raise FileNotFoundError(f"No saved model for {site}|{loc}, {key}")
 
         ckpt = torch.load(path, weights_only = False, map_location=self.device)
         model = LSTMModel(input_size=1, hidden_size=64, num_layers=2).to(self.device)
