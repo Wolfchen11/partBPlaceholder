@@ -107,10 +107,9 @@ if st.session_state.paths:
         lons = [lon for lat,lon in all_coords]
         m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
 
-        # 3) display the map
-        st_folium(m, width=800, height=500)
+        
 
-        # 4) render the textual list
+        # 3) render the textual list
         st.subheader("Paths")
         for idx, (nodes, total_time, total_dist) in enumerate(paths, start=1):
             colour = PALETTE[(idx-1) % len(PALETTE)]
@@ -121,3 +120,6 @@ if st.session_state.paths:
                 f"</span>",
                 unsafe_allow_html=True
             )
+
+        # 4) display the map
+        st_folium(m, width=800, height=500)

@@ -169,7 +169,7 @@ class LSTMPredictor:
 
 
 class GRUPredictor:
-    def __init__(self, data_pkl=DATA_PKL, models_dir=MODELS_DIR_LSTM, models_dir_2=MODELS_DIR_LSTM_2):
+    def __init__(self, data_pkl=DATA_PKL, models_dir=MODELS_DIR_GRU, models_dir_2=MODELS_DIR_GRU_2):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[GRU] Using device: {self.device}")
         

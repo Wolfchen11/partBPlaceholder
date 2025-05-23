@@ -11,10 +11,10 @@ from algorithms.astar_search import astar
 
 # Map friendly names to predictor classes and their model directories
 MODEL_MAP = {
-    "LSTM": (LSTMPredictor, "lstm_saved_models", "../lstm_saved_models/"),
-    "GRU":  (GRUPredictor,  "gru_saved_models", "../gru_saved_models/"),
-    "MLP":  (MLPPredictor,  "mlp_saved_models", "../mlp_saved_models/"),
-    "TCN":  (TCNPredictor,  "tcn_saved_models", "../tcn_saved_models/"),
+    "LSTM": (LSTMPredictor, "lstm_saved_models", "lstm_saved_models/"),
+    "GRU":  (GRUPredictor,  "gru_saved_models", "gru_saved_models/"),
+    "MLP":  (MLPPredictor,  "mlp_saved_models", "mlp_saved_models/"),
+    "TCN":  (TCNPredictor,  "tcn_saved_models", "tcn_saved_models/"),
 }
 
 def load_timeseries(ts_csv: str = "data/traffic_model_ready.csv") -> pd.DataFrame:
