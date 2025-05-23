@@ -31,7 +31,7 @@ predictor = TCNPredictor(
 
 
 routes = astar(
-    start=2000, #4063
+    start=970, #4063
     goal=4321,
     centroids=centroids,
     edges=edges,
@@ -41,14 +41,5 @@ routes = astar(
 )
 
 
-for i, (path, time_min) in enumerate(routes, 1):
-    total_dist = 0.0
-    for u, v, d in edges:
-        if u in path:
-            try:
-                idx = path.index(u)
-                if path[idx+1] == v:
-                    total_dist += d
-            except (IndexError, ValueError):
-                pass
-    print(f"Route #{i}: {path} → {time_min:.1f} min, {total_dist:.2f} km")
+for i, route in enumerate(routes, 1):
+    print(f"Route #{i}: {route[0]} → {route[1]:.1f} min, {route[2]:.2f} km")

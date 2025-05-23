@@ -65,6 +65,7 @@ def astar(start, goal, centroids, edges, predictor, start_timestamp, k=3):
             if key in flow_cache:
                 flow = flow_cache[key]
             else:
+                # print(f"Predicting flow for {current}, {loc}, {dep_time}")
                 flow = predictor.predict(current, loc, dep_time)
                 flow_cache[key] = flow
 
