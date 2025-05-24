@@ -350,74 +350,101 @@ st.sidebar.header("Traffic Volume Prediction")
 default_site = start_sel.split("⎯")[0].strip()
 st.sidebar.write(f"Site: **{default_site}**")
 st.sidebar.write(f"Date/Time: **{timestamp:%Y-%m-%d %H:%M}**")
+st.sidebar.write(f"Model: **{model_name}**")
 # Option to use current model or all models
 model_mode = st.sidebar.radio(
     "Model selection:",
     ["Current model", "All models"],
     index=0
 )
-
-# Build model_map once
+# Location choices filtered by site
 ready_df = pd.read_pickle("data/traffic_model_ready.pkl")
 arms = sorted(ready_df[ready_df.Site_ID.astype(str)==default_site].Location.unique())
 loc_pred = st.sidebar.selectbox("Location", arms)
-# Prepare data slice
+# Initialize prediction session state
+if "pred_params" not in st.session_state:
+    st.session_state.pred_params = None
+if "pred_results" not in st.session_state:
+    st.session_state.pred_results = None
+
+# Run prediction when button clicked
 if st.sidebar.button("Run Prediction", key="run_pred"):
-    dfp = ready_df.query(
-        "Site_ID == @default_site and Location == @loc_pred"
-    ).sort_values("Timestamp")
-    ts = dfp.Volume.values
-    times = dfp.Timestamp.values
-    SEQ_LEN = 96
-    X_list, y_list = [], []
-    for i in range(SEQ_LEN, len(ts)):
-        X_list.append(ts[i-SEQ_LEN:i])
-        y_list.append(ts[i])
-    X_arr = np.stack(X_list).astype(np.float32)
-    y_arr = np.array(y_list).reshape(-1,1).astype(np.float32)
-    times = times[SEQ_LEN:]
-    scaler = MinMaxScaler()
-    X_scaled = scaler.fit_transform(X_arr.reshape(-1,1)).reshape(-1,SEQ_LEN)
-    y_scaled = scaler.transform(y_arr)
-    X_tensor = torch.from_numpy(X_scaled).unsqueeze(-1).float()
-    dev = torch.device('cpu')
-    # model_map definitions
-    model_map = {
-      "LSTM":(LSTMPredictor, LSTMModel,  f"lstm_saved_models/{default_site}__{loc_pred.replace(' ','_')}.pth"),
-      "GRU": (GRUPredictor,  GRUModel,   f"gru_saved_models/{default_site}__{loc_pred.replace(' ','_')}_GRU.pth"),
-      "MLP": (MLPPredictor,  MLPModel,   f"mlp_saved_models/{default_site}__{loc_pred.replace(' ','_')}_MLP.pth"),
-      "TCN": (TCNPredictor,  TCNModel,   f"tcn_saved_models/{default_site}__{loc_pred.replace(' ','_')}_TCN.pth")
+    pred_params = {
+        "site": default_site,
+        "loc": loc_pred,
+        "day": day,
+        "hour": hour,
+        "minute": minute,
+        "model_mode": model_mode
     }
-    # determine which models to run
-    models_to_run = [model_name] if model_mode=="Current model" else list(model_map.keys())
-    fig, ax = plt.subplots(figsize=(12,6))
-    # plot actual
-    # filter to selected day
+    if pred_params != st.session_state.pred_params:
+        st.session_state.pred_params = pred_params.copy()
+        with st.spinner("Running volume prediction…"):
+            # Prepare data slice
+            dfp = ready_df.query("Site_ID == @default_site and Location == @loc_pred").sort_values("Timestamp")
+            ts = dfp.Volume.values
+            times = dfp.Timestamp.values
+            SEQ_LEN = 96
+            X_list, y_list = [], []
+            for i in range(SEQ_LEN, len(ts)):
+                X_list.append(ts[i-SEQ_LEN:i])
+                y_list.append(ts[i])
+            X_arr = np.stack(X_list).astype(np.float32)
+            y_arr = np.array(y_list).reshape(-1,1).astype(np.float32)
+            times_full = times[SEQ_LEN:]
+            scaler = MinMaxScaler()
+            X_scaled = scaler.fit_transform(X_arr.reshape(-1,1)).reshape(-1,SEQ_LEN)
+            y_scaled = scaler.transform(y_arr)
+            X_tensor = torch.from_numpy(X_scaled).unsqueeze(-1).float()
+            # Build model_map
+            model_map = {
+              "LSTM":(LSTMPredictor, LSTMModel,  f"lstm_saved_models/{default_site}__{loc_pred.replace(' ','_')}.pth"),
+              "GRU": (GRUPredictor,  GRUModel,   f"gru_saved_models/{default_site}__{loc_pred.replace(' ','_')}_GRU.pth"),
+              "MLP": (MLPPredictor,  MLPModel,   f"mlp_saved_models/{default_site}__{loc_pred.replace(' ','_')}_MLP.pth"),
+              "TCN": (TCNPredictor,  TCNModel,   f"tcn_saved_models/{default_site}__{loc_pred.replace(' ','_')}_TCN.pth")
+            }
+            # Determine models to run
+            models_to_run = [model_name] if model_mode == "Current model" else list(model_map.keys())
+            dev = torch.device('cpu')
+            results = {"times_full": times_full, "scaler": scaler, "y_scaled": y_scaled, "models": {}}
+            # Run predictions per model
+            for mname in models_to_run:
+                PredCls, NetCls, cp = model_map[mname]
+                ckpt = torch.load(cp, map_location=dev, weights_only=False)
+                if mname == "MLP":
+                    net = NetCls(input_size=SEQ_LEN, hidden_size=128).to(dev)
+                elif mname in ("LSTM","GRU"):
+                    net = NetCls(input_size=1, hidden_size=64, num_layers=2).to(dev)
+                else:
+                    net = NetCls(input_size=1, hidden_size=64, seq_len=SEQ_LEN, output_size=1).to(dev)
+                net.load_state_dict(ckpt['state_dict'])
+                net.eval()
+                with torch.no_grad():
+                    if mname == "MLP":
+                        pr = net(X_tensor.view(X_tensor.size(0), -1).to(dev))
+                    else:
+                        pr = net(X_tensor.to(dev))
+                pr_np = pr.cpu().numpy()
+                results["models"][mname] = pr_np
+            # Store results
+            st.session_state.pred_results = results
+
+# Display prediction plot if available
+if st.session_state.pred_results:
+    res = st.session_state.pred_results
+    times_full = res["times_full"]
+    scaler = res["scaler"]
+    y_scaled = res["y_scaled"]
     day_start = pd.Timestamp(2006,10,day,0,0)
-    day_end   = day_start + pd.Timedelta(days=1)
-    mask = (times >= day_start) & (times < day_end)
-    times_sel = times[mask]
+    day_end = day_start + pd.Timedelta(days=1)
+    mask = (times_full >= day_start) & (times_full < day_end)
+    times_sel = times_full[mask]
     actual_sel = scaler.inverse_transform(y_scaled)[mask]
+    fig, ax = plt.subplots(figsize=(12,6))
     ax.plot(times_sel, actual_sel, label='Actual', color='black')
-    # color cycle
     color_cycle = ['blue','orange','green','red']
-    for idx, mname in enumerate(models_to_run):
-        PredCls, NetCls, cp = model_map[mname]
-        ckpt = torch.load(cp, map_location=dev, weights_only=False)
-        if mname == "MLP":
-            net = NetCls(input_size=SEQ_LEN, hidden_size=128).to(dev)
-        elif mname in ("LSTM","GRU"):
-            net = NetCls(input_size=1, hidden_size=64, num_layers=2).to(dev)
-        else:
-            net = NetCls(input_size=1, hidden_size=64, seq_len=SEQ_LEN, output_size=1).to(dev)
-        net.load_state_dict(ckpt['state_dict']); net.eval()
-        with torch.no_grad():
-            if mname == "MLP":
-                preds = net(X_tensor.view(X_tensor.size(0), -1).to(dev))
-            else:
-                preds = net(X_tensor.to(dev))
-        preds_np = preds.cpu().numpy()
-        preds_inv = scaler.inverse_transform(preds_np)[mask]
+    for idx, (mname, pr_np) in enumerate(res['models'].items()):
+        preds_inv = scaler.inverse_transform(pr_np)[mask]
         ax.plot(
             times_sel,
             preds_inv,
@@ -428,7 +455,7 @@ if st.sidebar.button("Run Prediction", key="run_pred"):
     ax.set_xlim(day_start, day_end)
     ax.set_xlabel('Time')
     ax.set_ylabel('Volume')
-    ax.set_title(f'Site {default_site} — {loc_pred} (2006-10-{day:02d})')
+    ax.set_title(f'Site {default_site} — {res[loc]} (2006-10-{day:02d})')
     ax.legend()
     ax.grid(True)
     plt.xticks(rotation=45)
