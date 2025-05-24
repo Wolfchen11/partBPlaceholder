@@ -55,7 +55,7 @@ with tab_paths:
     # Sidebar controls
     if st.sidebar.button("Show paths", key="show_paths"):
         # compute graph & paths
-        with st.spinner("Building graph & predicting…"):
+        with st.spinner("Building graph…"):
             ts_df = load_timeseries()
             source = start_sel.split("⎯")[0].strip()
             target = end_sel.split("⎯")[0].strip()
@@ -107,11 +107,13 @@ with tab_paths:
         # Base map
         lat0, lon0 = G.nodes[start_sel.split("⎯")[0].strip()]['pos']
         m = folium.Map(location=[lat0, lon0], zoom_start=13)
-        # Node markers
+        # Node markers with wider popups for better visibility
         for nid in show_nodes:
             lat, lon = G.nodes[nid]['pos']
             loc = nodes_df.loc[nodes_df.Site_ID == nid, 'Location'].iat[0]
-            folium.Marker((lat, lon), popup=f"Node {nid}, {loc}", icon=folium.Icon(color='gray')).add_to(m)
+            popup = folium.Popup(f"SCATS ID: {nid}, {loc}, {lat:.6f}, {lon:.6f}", max_width=150)
+            marker = folium.Marker((lat, lon), popup=popup, icon=folium.Icon(color='gray'))
+            marker.add_to(m)
         # Draw routes
         all_coords = []
         for idx,(ns,t,d) in enumerate(paths):
@@ -133,7 +135,7 @@ with tab_paths:
         for idx, (nodes, t, d) in enumerate(paths):
         # build label & styling
             color = PALETTE[idx % len(PALETTE)]
-            label = f"{idx+1}. {t:.1f}m, {d:.2f}km → {' → '.join(nodes)}"
+            label = f"{idx+1}. {t:.1f}m, {d:.2f}km: {' → '.join(nodes)}"
             if idx == hi:
                 styled = (
                     f"<span style='color:{color}; "
@@ -169,7 +171,7 @@ with tab_vol:
     # st.subheader(f"Site: {site or '—'}  |  Time: {timestamp:%Y-%m-%d %H:%M}")
     # location dropdown for that site
     arms = sorted(ready_df[ready_df.Site_ID.astype(str)==site].Location.unique()) if site else []
-    loc = st.sidebar.selectbox("Location", arms, key="vol_loc")
+    loc = st.sidebar.selectbox("Locations of start node", arms, key="vol_loc")
     mode = st.sidebar.radio("Models to run", ["Current model","All models"], key="vol_mode")
     if st.sidebar.button("Run Prediction", key="vol_run"):
         pred_params = {
