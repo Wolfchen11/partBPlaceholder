@@ -32,12 +32,12 @@ predictor = TCNPredictor(
 
 routes = astar(
     start=970, #4063
-    goal=4321,
+    goal=2000,
     centroids=centroids,
     edges=edges,
     predictor=predictor,
-    start_timestamp="2006-10-08 14:45:00",
-    k=5 # number of routes to return
+    start_timestamp="2006-10-05 05:15:00",
+    k=3 # number of routes to return
 )
 
 
